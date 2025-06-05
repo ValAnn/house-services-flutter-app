@@ -1,14 +1,14 @@
 // lib/models/auth_models.dart
 
 class LoginRequest {
-  final String email;
+  final String username;
   final String password;
 
-  LoginRequest({required this.email, required this.password});
+  LoginRequest({required this.username, required this.password});
 
   Map<String, dynamic> toJson() {
     return {
-      'email': email,
+      'username': username,
       'password': password,
     };
   }
@@ -17,16 +17,15 @@ class LoginRequest {
 class LoginResponse {
   final String token;
   final String role; // Предполагаем, что бэкенд возвращает роль пользователя
-  final int userId; // ID пользователя (tenantId, operatorId и т.д.)
+  final int id; // ID пользователя (tenantId, operatorId и т.д.)
 
-  LoginResponse(
-      {required this.token, required this.role, required this.userId});
+  LoginResponse({required this.token, required this.role, required this.id});
 
   factory LoginResponse.fromJson(Map<String, dynamic> json) {
     return LoginResponse(
       token: json['token'],
       role: json['role'],
-      userId: json['userId'],
+      id: json['id'],
     );
   }
 }
@@ -37,6 +36,7 @@ class RegisterRequest {
   final String phoneNumber;
   final String password;
   final String registrationAddress; // Для Tenant
+  final String passportNumber;
 
   RegisterRequest({
     required this.fullName,
@@ -44,6 +44,7 @@ class RegisterRequest {
     required this.phoneNumber,
     required this.password,
     required this.registrationAddress,
+    required this.passportNumber,
   });
 
   Map<String, dynamic> toJson() {
@@ -53,6 +54,7 @@ class RegisterRequest {
       'phoneNumber': phoneNumber,
       'password': password,
       'registrationAddress': registrationAddress,
+      'passportNumber': passportNumber,
     };
   }
 }

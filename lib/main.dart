@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:house_services_flutter/pages/login_page.dart';
 import 'package:house_services_flutter/pages/registration_page.dart';
+import 'package:house_services_flutter/pages/statistics_page.dart';
 import 'package:provider/provider.dart';
 import 'services/api_service.dart';
 import 'pages/home_page.dart';
@@ -56,6 +57,7 @@ class _MyAppState extends State<MyApp> {
         '/register': (context) => const RegistrationPage(),
         '/home': (context) => const HomePage(),
         '/add-request': (context) => const AddRequestPage(),
+        '/statistics': (context) => const StatisticsPage(),
         // Другие маршруты будут добавлены по мере создания страниц
       },
     );

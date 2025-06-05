@@ -1,6 +1,8 @@
 // lib/pages/request_details_page.dart
 
 import 'package:flutter/material.dart';
+import 'package:house_services_flutter/models/repair_team_model.dart';
+import 'package:provider/provider.dart';
 import '../models/request_model.dart';
 import '../services/api_service.dart';
 import 'dart:convert'; // Для base64Decode
@@ -18,15 +20,62 @@ class _RequestDetailsPageState extends State<RequestDetailsPage> {
   late RequestDto _currentRequest;
   final ApiService _apiService = ApiService();
 
+  List<RepairTeamDto> _repairTeams = []; // List of available repair teams
+  bool _isLoadingTeams = false; // Flag for loading repair teams
+  int? _selectedRepairTeamId; // Selected repair team ID for assignment
+
   @override
   void initState() {
     super.initState();
     _currentRequest = widget.request;
+    if (ApiService.userRole == 'ROLE_OPERATOR') {
+      _fetchRepairTeams();
+    }
+  }
+
+  Future<void> _fetchRepairTeams() async {
+    setState(() {
+      _isLoadingTeams = true;
+    });
+    try {
+      final apiService = Provider.of<ApiService>(context, listen: false);
+      _repairTeams = await apiService.getRepairTeams();
+    } catch (e) {
+      print('Ошибка при загрузке ремонтных бригад: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Ошибка загрузки бригад: ${e.toString()}')),
+      );
+    } finally {
+      setState(() {
+        _isLoadingTeams = false;
+      });
+    }
   }
 
   Future<void> _updateStatus(String newStatus) async {
     try {
-      await _apiService.updateRequestStatus(_currentRequest.id!, newStatus);
+      // await _apiService.updateRequestStatus(_currentRequest.id!, newStatus);
+
+      if (newStatus == 'ASSIGNED' && _selectedRepairTeamId != null) {
+        await _apiService.assignRequestToTeam(
+            _currentRequest.id!, _selectedRepairTeamId!);
+      }
+      if (newStatus == 'COMPLETED') {
+        RequestDto curRequest = RequestDto(
+          id: _currentRequest.id,
+          creatingDate: _currentRequest.creatingDate,
+          progressDate: _currentRequest.progressDate,
+          closeDate: _currentRequest.closeDate,
+          description: _currentRequest.description,
+          status: newStatus,
+          operatorId: _currentRequest.operatorId,
+          tenantId: _currentRequest.tenantId,
+          repairTeamId: _currentRequest.repairTeamId,
+          result: _currentRequest.result,
+          photoData: _currentRequest.photoData,
+        );
+        await _apiService.addRepairComment(_currentRequest.id!, curRequest);
+      }
       setState(() {
         _currentRequest = RequestDto(
           id: _currentRequest.id,
@@ -54,14 +103,23 @@ class _RequestDetailsPageState extends State<RequestDetailsPage> {
     }
   }
 
-  Future<void> _addComment(String comment) async {
+  Future<void> _addComment(RequestDto curReq, String comment) async {
     try {
-      await _apiService.addRepairComment(_currentRequest.id!, comment);
-      setState(() {
-        // Если бэкенд возвращает обновленный запрос с комментарием,
-        // можно было бы обновить _currentRequest с него.
-        // Для простоты, пока просто показываем сообщение.
-      });
+      RequestDto curRequest = RequestDto(
+        id: _currentRequest.id,
+        creatingDate: _currentRequest.creatingDate,
+        progressDate: _currentRequest.progressDate,
+        closeDate: _currentRequest.closeDate,
+        description: _currentRequest.description,
+        status: _currentRequest.status,
+        operatorId: _currentRequest.operatorId,
+        tenantId: _currentRequest.tenantId,
+        repairTeamId: _currentRequest.repairTeamId,
+        result: comment,
+        photoData: _currentRequest.photoData,
+      );
+      await _apiService.addRepairComment(_currentRequest.id!, curRequest);
+      setState(() {});
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Комментарий добавлен!')),
       );
@@ -74,12 +132,135 @@ class _RequestDetailsPageState extends State<RequestDetailsPage> {
     }
   }
 
+  void _showStatusChangeDialog(BuildContext context) {
+    // Local state for the dialog's dropdowns
+    String? dialogSelectedStatus =
+        _currentRequest?.status; // Pre-select current status
+    int? dialogSelectedRepairTeamId;
+
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return StatefulBuilder(
+          // Use StatefulBuilder to update dialog content
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Изменить статус заявки'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min, // Keep column compact
+                children: [
+                  DropdownButtonFormField<String>(
+                    value: dialogSelectedStatus,
+                    hint: const Text('Выберите новый статус'),
+                    items: <String>[
+                      'CREATED',
+                      'ASSIGNED',
+                      'IN_PROGRESS',
+                      'COMPLETED',
+                      'CLOSED',
+                      'CANCELLED'
+                    ] // All possible statuses
+                        .map<DropdownMenuItem<String>>((String value) {
+                      return DropdownMenuItem<String>(
+                        value: value,
+                        child: Text(value),
+                      );
+                    }).toList(),
+                    onChanged: (String? newValue) {
+                      setDialogState(() {
+                        // Update dialog's local state
+                        dialogSelectedStatus = newValue;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  // Show repair team dropdown ONLY if status is ASSIGNED and user is OPERATOR
+                  if (dialogSelectedStatus == 'ASSIGNED' &&
+                      ApiService.userRole == 'ROLE_OPERATOR')
+                    _isLoadingTeams
+                        ? const CircularProgressIndicator() // Show loading indicator
+                        : DropdownButtonFormField<int>(
+                            value: dialogSelectedRepairTeamId,
+                            hint: const Text('Выберите ремонтную бригаду'),
+                            items: _repairTeams.map<DropdownMenuItem<int>>(
+                                (RepairTeamDto team) {
+                              return DropdownMenuItem<int>(
+                                value: team.id,
+                                child: Text(team.teamNumber),
+                              );
+                            }).toList(),
+                            onChanged: (int? newValue) {
+                              setDialogState(() {
+                                // Update dialog's local state
+                                dialogSelectedRepairTeamId = newValue;
+                              });
+                            },
+                          ),
+                  if (dialogSelectedStatus == 'ASSIGNED' &&
+                      ApiService.userRole == 'OPERATOR' &&
+                      _repairTeams.isEmpty &&
+                      !_isLoadingTeams)
+                    const Text('Нет доступных бригад',
+                        style: TextStyle(color: Colors.red)),
+                ],
+              ),
+              actions: <Widget>[
+                TextButton(
+                  child: const Text('Отмена'),
+                  onPressed: () {
+                    Navigator.of(dialogContext).pop();
+                  },
+                ),
+                ElevatedButton(
+                  child: const Text('Сохранить'),
+                  onPressed: () {
+                    if (dialogSelectedStatus != null) {
+                      // Check for repair team selection if status is ASSIGNED
+                      if (dialogSelectedStatus == 'ASSIGNED' &&
+                          ApiService.userRole == 'OPERATOR' &&
+                          dialogSelectedRepairTeamId == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                              content: Text(
+                                  'Пожалуйста, выберите ремонтную бригаду.')),
+                        );
+                        return; // Don't close dialog, let user select a team
+                      }
+
+                      // Update the state variable with selected team ID before calling _updateStatus
+                      setState(() {
+                        _selectedRepairTeamId = dialogSelectedRepairTeamId;
+                      });
+
+                      _updateStatus(dialogSelectedStatus!);
+                      Navigator.of(dialogContext).pop();
+                    }
+                  },
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final userRole = ApiService.userRole;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Детали заявки')),
+      appBar: AppBar(
+        title: const Text('Детали заявки'),
+        actions: [
+          // Show status change button only for Operator and Repair Team
+          if (userRole == 'OPERATOR' || userRole == 'REPAIR_TEAM')
+            IconButton(
+              icon: const Icon(Icons.edit),
+              onPressed: () => _showStatusChangeDialog(context),
+            ),
+        ],
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -133,7 +314,7 @@ class _RequestDetailsPageState extends State<RequestDetailsPage> {
               ),
 
             // Логика для кнопок в зависимости от роли
-            if (userRole == 'OPERATOR') ...[
+            if (userRole == 'ROLE_OPERATOR') ...[
               const Divider(),
               const Text('Действия оператора:',
                   style: TextStyle(fontWeight: FontWeight.bold)),
@@ -142,7 +323,7 @@ class _RequestDetailsPageState extends State<RequestDetailsPage> {
                 child: const Text('Изменить статус'),
               ),
             ],
-            if (userRole == 'REPAIR_TEAM') ...[
+            if (userRole == 'ROLE_REPAIR_TEAM') ...[
               const Divider(),
               const Text('Действия бригады:',
                   style: TextStyle(fontWeight: FontWeight.bold)),
@@ -160,50 +341,6 @@ class _RequestDetailsPageState extends State<RequestDetailsPage> {
           ],
         ),
       ),
-    );
-  }
-
-  void _showStatusChangeDialog(BuildContext context) {
-    String? selectedStatus;
-    showDialog(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: const Text('Изменить статус заявки'),
-          content: DropdownButtonFormField<String>(
-            value: selectedStatus,
-            hint: const Text('Выберите новый статус'),
-            items:
-                <String>['ASSIGNED', 'IN_PROGRESS', 'CLOSED'] // Пример статусов
-                    .map<DropdownMenuItem<String>>((String value) {
-              return DropdownMenuItem<String>(
-                value: value,
-                child: Text(value),
-              );
-            }).toList(),
-            onChanged: (String? newValue) {
-              selectedStatus = newValue;
-            },
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: const Text('Отмена'),
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-              },
-            ),
-            ElevatedButton(
-              child: const Text('Сохранить'),
-              onPressed: () {
-                if (selectedStatus != null) {
-                  _updateStatus(selectedStatus!);
-                  Navigator.of(dialogContext).pop();
-                }
-              },
-            ),
-          ],
-        );
-      },
     );
   }
 
@@ -230,7 +367,7 @@ class _RequestDetailsPageState extends State<RequestDetailsPage> {
               child: const Text('Добавить'),
               onPressed: () {
                 if (commentController.text.isNotEmpty) {
-                  _addComment(commentController.text);
+                  _addComment(_currentRequest, commentController.text);
                   Navigator.of(dialogContext).pop();
                 }
               },

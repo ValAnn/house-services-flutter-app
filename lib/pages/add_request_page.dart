@@ -4,10 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/request_model.dart';
 import '../services/api_service.dart';
-// Если вы используете file_picker для выбора файлов (для web), добавьте в pubspec.yaml:
-// file_picker: ^6.1.1
-// import 'package:file_picker/file_picker.dart';
-// import 'dart:convert'; // Для base64Encode
+
+import 'package:file_picker/file_picker.dart';
+import 'dart:convert';
 
 class AddRequestPage extends StatefulWidget {
   const AddRequestPage({super.key});
@@ -19,14 +18,14 @@ class AddRequestPage extends StatefulWidget {
 class _AddRequestPageState extends State<AddRequestPage> {
   final _descriptionController = TextEditingController();
   String? _errorMessage;
-  // String? _base64Photo; // Для Base64 фото
+  String? _base64Photo; // Для Base64
 
   Future<void> _addRequest() async {
     setState(() {
       _errorMessage = null;
     });
 
-    if (ApiService.userId == null) {
+    if (ApiService.id == null) {
       setState(() {
         _errorMessage =
             'Ошибка: ID пользователя не найден. Пожалуйста, войдите снова.';
@@ -38,9 +37,9 @@ class _AddRequestPageState extends State<AddRequestPage> {
       final apiService = Provider.of<ApiService>(context, listen: false);
       final newRequest = RequestDto(
         description: _descriptionController.text,
-        tenantId: ApiService
-            .userId!, // Используем ID текущего пользователя как tenantId
-        // photoData: _base64Photo, // Включите, если реализуете загрузку фото
+        tenantId:
+            ApiService.id!, // Используем ID текущего пользователя как tenantId
+        photoData: _base64Photo, // Включите, если реализуете загрузку фото
       );
       await apiService.createRequest(newRequest);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -54,8 +53,6 @@ class _AddRequestPageState extends State<AddRequestPage> {
     }
   }
 
-  // --- Пример функции для выбора файла и кодирования в Base64 (не включен в UI) ---
-  /*
   Future<void> _pickAndEncodePhoto() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.image,
@@ -65,7 +62,6 @@ class _AddRequestPageState extends State<AddRequestPage> {
     if (result != null && result.files.single.bytes != null) {
       setState(() {
         _base64Photo = base64Encode(result.files.single.bytes!);
-        // Можно показать предпросмотр или имя файла
         print('Photo selected and encoded!');
       });
     } else {
@@ -75,7 +71,6 @@ class _AddRequestPageState extends State<AddRequestPage> {
       });
     }
   }
-  */
 
   @override
   Widget build(BuildContext context) {
@@ -96,14 +91,13 @@ class _AddRequestPageState extends State<AddRequestPage> {
                 maxLines: 5,
               ),
               const SizedBox(height: 20),
-              // Если реализуете загрузку фото Base64:
-              /*
               ElevatedButton(
                 onPressed: _pickAndEncodePhoto,
-                child: Text(_base64Photo != null ? 'Фото выбрано' : 'Выбрать фото (опционально)'),
+                child: Text(_base64Photo != null
+                    ? 'Фото выбрано'
+                    : 'Выбрать фото (опционально)'),
               ),
               const SizedBox(height: 20),
-              */
               if (_errorMessage != null)
                 Padding(
                   padding: const EdgeInsets.all(8.0),

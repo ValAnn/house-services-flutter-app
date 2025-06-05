@@ -18,6 +18,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
   final _phoneNumberController = TextEditingController();
   final _passwordController = TextEditingController();
   final _addressController = TextEditingController(); // Для Tenant
+  final _passportNumberController = TextEditingController();
   String? _errorMessage;
 
   Future<void> _register() async {
@@ -27,12 +28,12 @@ class _RegistrationPageState extends State<RegistrationPage> {
     try {
       final apiService = Provider.of<ApiService>(context, listen: false);
       final registerRequest = RegisterRequest(
-        fullName: _fullNameController.text,
-        email: _emailController.text,
-        phoneNumber: _phoneNumberController.text,
-        password: _passwordController.text,
-        registrationAddress: _addressController.text,
-      );
+          fullName: _fullNameController.text,
+          email: _emailController.text,
+          phoneNumber: _phoneNumberController.text,
+          password: _passwordController.text,
+          registrationAddress: _addressController.text,
+          passportNumber: _passportNumberController.text);
       await apiService.registerTenant(registerRequest);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -80,6 +81,11 @@ class _RegistrationPageState extends State<RegistrationPage> {
                   controller: _addressController,
                   decoration:
                       const InputDecoration(labelText: 'Адрес регистрации')),
+              TextField(
+                  controller: _passportNumberController,
+                  decoration: const InputDecoration(
+                      labelText: 'Номер и серия паспорта')),
+              const SizedBox(height: 10),
               if (_errorMessage != null)
                 Padding(
                   padding: const EdgeInsets.all(8.0),
