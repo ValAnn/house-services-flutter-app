@@ -3,6 +3,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:house_services_flutter/models/repair_team_model.dart';
+import 'package:house_services_flutter/models/tenant_model.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -10,8 +11,7 @@ import '../models/auth_models.dart';
 import '../models/request_model.dart';
 
 class ApiService {
-  // !!! Замените на ваш фактический базовый URL бэкенда !!!
-  static const String _baseUrl = 'http://localhost:9090/api'; // Например
+  static const String _baseUrl = 'http://localhost:9090/api';
 
   static String? _token;
   static int? _id;
@@ -130,6 +130,42 @@ class ApiService {
       final List<dynamic> jsonList =
           jsonDecode(utf8.decode(response.bodyBytes));
       return jsonList.map((json) => RequestDto.fromJson(json)).toList();
+    } else {
+      final errorData = jsonDecode(utf8.decode(response.bodyBytes));
+      throw Exception(
+          'Failed to load requests: ${response.statusCode} - ${errorData['message'] ?? 'Unknown error'}');
+    }
+  }
+
+  Future<List<TenantDto>> getTenants(
+      {String? status, String? description}) async {
+    if (_token == null || _id == null || _userRole == null) {
+      throw Exception('User not authenticated.');
+    }
+
+    Uri finalUrl;
+    Map<String, String> queryParams = {};
+
+    // Логика получения заявок в зависимости от роли:
+
+    finalUrl = Uri.parse('$_baseUrl/tenants');
+
+    if (kDebugMode) {
+      print('Запрос на URL: $finalUrl');
+    }
+
+    final response = await http.get(
+      finalUrl,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $_token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final List<dynamic> jsonList =
+          jsonDecode(utf8.decode(response.bodyBytes));
+      return jsonList.map((json) => TenantDto.fromJson(json)).toList();
     } else {
       final errorData = jsonDecode(utf8.decode(response.bodyBytes));
       throw Exception(
@@ -268,13 +304,10 @@ class ApiService {
       throw Exception('Пользователь не авторизован');
     }
 
-    // Форматируем даты в строку ISO 8601, как ожидает сервер (yyyy-MM-ddTHH:mm:ss)
-    // Server expects LocalDateTime.parse(startDate), so a full ISO format is best.
-    final String formattedStartDate = DateFormat("yyyy-MM-dd'T'HH:mm:ss")
-        .format(startDate
-            .toUtc()); // Важно: используйте UTC, чтобы избежать проблем с часовыми поясами
-    final String formattedEndDate = DateFormat("yyyy-MM-dd'T'HH:mm:ss")
-        .format(endDate.toUtc()); // Важно: используйте UTC
+    final String formattedStartDate =
+        DateFormat("yyyy-MM-dd'T'HH:mm:ss").format(startDate.toUtc());
+    final String formattedEndDate =
+        DateFormat("yyyy-MM-dd'T'HH:mm:ss").format(endDate.toUtc());
 
     final url = Uri.parse(
         '$_baseUrl/requests/statistics?startDate=$formattedStartDate&endDate=$formattedEndDate');
@@ -289,10 +322,8 @@ class ApiService {
       );
 
       if (response.statusCode == 200) {
-        // Сервер возвращает Map<String, Long>, в Dart это Map<String, int>
         final Map<String, dynamic> data = json.decode(response.body);
 
-        // Преобразуем значения Long (Java) в int (Dart), так как Long может быть преобразован в int
         return data.map((key, value) => MapEntry(key, value as int));
       } else if (response.statusCode == 403) {
         throw Exception(

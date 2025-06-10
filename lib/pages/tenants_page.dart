@@ -1,25 +1,33 @@
 // lib/pages/home_page.dart
 
 import 'package:flutter/material.dart';
-import 'package:house_services_flutter/pages/request_details_page.dart';
 import 'package:house_services_flutter/pages/statistics_page.dart';
 import 'package:provider/provider.dart';
-import '../models/request_model.dart';
+import '../models/tenant_model.dart';
 import '../services/api_service.dart';
 
-class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+class TenantsPage extends StatefulWidget {
+  const TenantsPage({super.key});
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  State<TenantsPage> createState() => _TenantsPageState();
 }
 
-class _HomePageState extends State<HomePage> {
-  late Future<List<RequestDto>> _requestsFuture;
+class _TenantsPageState extends State<TenantsPage> {
+  late Future<List<TenantDto>> _tenantsFuture;
   String? _selectedStatus; // Выбранный статус для фильтрации
   final TextEditingController _searchController =
       TextEditingController(); // Контроллер для поля поиска
   String _searchText = ''; // Текст для поиска по описанию
+
+  @override
+  void initState() {
+    super.initState();
+
+    _loadTenants();
+
+    _searchController.addListener(_onSearchChanged);
+  }
 
   final List<String> _requestStatuses = [
     'ALL', // Добавляем опцию "Все"
@@ -31,33 +39,24 @@ class _HomePageState extends State<HomePage> {
     'CANCELLED',
   ];
 
-  @override
-  void initState() {
-    super.initState();
-    _selectedStatus = _requestStatuses.first;
-    _loadRequests();
-
-    _searchController.addListener(_onSearchChanged);
-  }
-
   void _onSearchChanged() {
     if (_searchText != _searchController.text) {
       setState(() {
         _searchText = _searchController.text;
       });
-      _loadRequests();
+      _loadTenants();
     }
   }
 
-  void _add_request() async {
-    await Navigator.of(context).pushNamed('/add-request');
-    _loadRequests();
+  void _add_tenant() async {
+    await Navigator.of(context).pushNamed('/add-tenant');
+    _loadTenants();
   }
 
-  void _loadRequests() {
+  void _loadTenants() {
     setState(() {
-      _requestsFuture =
-          Provider.of<ApiService>(context, listen: false).getRequests(
+      _tenantsFuture =
+          Provider.of<ApiService>(context, listen: false).getTenants(
         status: _selectedStatus,
         description: _searchText.isNotEmpty ? _searchText : null,
       );
@@ -74,11 +73,11 @@ class _HomePageState extends State<HomePage> {
     if (role == 'ROLE_TENANT') {
       return 'Мои заявки';
     } else if (role == 'ROLE_OPERATOR') {
-      return 'Новые заявки';
+      return 'Жители';
     } else if (role == 'ROLE_REPAIR_TEAM') {
       return 'Заявки для бригады';
     }
-    return 'Заявки';
+    return 'Жители';
   }
 
   @override
@@ -93,31 +92,25 @@ class _HomePageState extends State<HomePage> {
             IconButton(
               icon: const Icon(Icons.add),
               onPressed: () async {
-                await Navigator.of(context).pushNamed('/add-request');
-                _loadRequests(); // Обновить список после добавления
+                await Navigator.of(context).pushNamed('/add-tenant');
+                _loadTenants(); // Обновить список после добавления
               },
             ),
           // IconButton(
           //   icon: const Icon(Icons.add),
-          //   onPressed: _add_request,
+          //   onPressed: _add_tenant,
           // ),
-          IconButton(
-            onPressed: () async {
-              await Navigator.of(context).pushNamed('/tenants');
-              _loadRequests();
-            },
-            icon: const Icon(Icons.square),
-          ),
-          IconButton(
-            onPressed: () async {
-              await Navigator.of(context).pushNamed('/statistics');
-              _loadRequests();
-            },
-            icon: const Icon(Icons.stacked_bar_chart),
-          ),
+          if (userRole == 'ROLE_OPERATOR')
+            IconButton(
+              onPressed: () async {
+                await Navigator.of(context).pushNamed('/statistics');
+                _loadTenants();
+              },
+              icon: const Icon(Icons.stacked_bar_chart),
+            ),
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: _loadRequests,
+            onPressed: _loadTenants,
           ),
           IconButton(
             icon: const Icon(Icons.logout),
@@ -126,7 +119,9 @@ class _HomePageState extends State<HomePage> {
         ],
       ),
       body: Column(
+        // Используем Column для размещения фильтров и списка
         children: [
+          // --- ПАНЕЛЬ ФИЛЬТРАЦИИ И ПОИСКА ---
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: Column(
@@ -151,83 +146,42 @@ class _HomePageState extends State<HomePage> {
                         : null,
                   ),
                   onSubmitted: (_) =>
-                      _loadRequests(), // Обновить по нажатию Enter
+                      _loadTenants(), // Обновить по нажатию Enter
                 ),
                 const SizedBox(height: 10),
-                DropdownButtonFormField<String>(
-                  value: _selectedStatus,
-                  decoration: InputDecoration(
-                    labelText: 'Фильтр по статусу',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8.0),
-                    ),
-                  ),
-                  items: _requestStatuses.map((String status) {
-                    return DropdownMenuItem<String>(
-                      value: status,
-                      child: Text(status),
-                    );
-                  }).toList(),
-                  onChanged: (String? newValue) {
-                    setState(() {
-                      _selectedStatus = newValue;
-                    });
-                    _loadRequests(); // Перезагружаем заявки с новым статусом
-                  },
-                ),
               ],
             ),
           ),
-          // --- КОНЕЦ ПАНЕЛИ ФИЛЬТРАЦИИ И ПОИСКА ---
 
-          // --- СПИСОК ЗАЯВОК (FutureBuilder) ---
           Expanded(
             // Expanded нужен, чтобы ListView занимал оставшееся пространство
-            child: FutureBuilder<List<RequestDto>>(
-              future: _requestsFuture,
+            child: FutureBuilder<List<TenantDto>>(
+              future: _tenantsFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 } else if (snapshot.hasError) {
                   return Center(child: Text('Ошибка: ${snapshot.error}'));
                 } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return const Center(child: Text('Нет доступных заявок.'));
+                  return const Center(child: Text('Нет доступных жителей.'));
                 } else {
                   return ListView.builder(
                     itemCount: snapshot.data!.length,
                     itemBuilder: (context, index) {
-                      final request = snapshot.data![index];
+                      final tenant = snapshot.data![index];
                       return Card(
                         margin: const EdgeInsets.all(8.0),
                         child: ListTile(
-                          title: Text(
-                              'Заявка #${request.id}: ${request.description}'),
+                          title:
+                              Text('Житель #${tenant.id}: ${tenant.fullName}'),
                           subtitle: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('Статус: ${request.status}'),
-                              if (request.creatingDate != null)
-                                Text(
-                                    'Создана: ${request.formatDateTime(request.creatingDate)}'),
-                              if (request.progressDate != null)
-                                Text(
-                                    'В работе: ${request.formatDateTime(request.progressDate)}'),
-                              if (request.closeDate != null)
-                                Text(
-                                    'Закрыта: ${request.formatDateTime(request.closeDate)}'),
+                              Text('Адрес: ${tenant.registrationAddress}'),
+                              Text('Почта: ${tenant.email}'),
+                              Text('Количество заявок: ${tenant.numRequests}'),
                             ],
                           ),
-                          onTap: () {
-                            Navigator.of(context)
-                                .push(
-                                  MaterialPageRoute(
-                                    builder: (context) =>
-                                        RequestDetailsPage(request: request),
-                                  ),
-                                )
-                                .then((_) =>
-                                    _loadRequests()); // Обновить после возвращения со страницы деталей
-                          },
                         ),
                       );
                     },
