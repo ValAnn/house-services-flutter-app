@@ -165,11 +165,59 @@ class ApiService {
     if (response.statusCode == 200) {
       final List<dynamic> jsonList =
           jsonDecode(utf8.decode(response.bodyBytes));
-      return jsonList.map((json) => TenantDto.fromJson(json)).toList();
+      List<TenantDto> tenants =
+          jsonList.map((json) => TenantDto.fromJson(json)).toList();
+
+      for (TenantDto tenant in tenants) {
+        try {
+          final List<RequestDto> userRequests =
+              await getUserRequests(tenant.id);
+          tenant.numRequests = userRequests.length;
+        } catch (e) {
+          if (kDebugMode) {
+            print('Ошибка при получении заявок для жителя ${tenant.id}: $e');
+          }
+          tenant.numRequests = 0; // В случае ошибки устанавливаем 0 заявок
+        }
+      }
+
+      return tenants;
     } else {
       final errorData = jsonDecode(utf8.decode(response.bodyBytes));
       throw Exception(
           'Failed to load requests: ${response.statusCode} - ${errorData['message'] ?? 'Unknown error'}');
+    }
+  }
+
+  Future<List<RequestDto>> getUserRequests(int userId) async {
+    if (_token == null) {
+      throw Exception('User not authenticated.');
+    }
+
+    final Uri finalUrl = Uri.parse(
+        '$_baseUrl/requests/my-requests/$userId'); // Предполагаемый эндпоинт
+
+    if (kDebugMode) {
+      print('Запрос на URL для заявок пользователя: $finalUrl');
+    }
+
+    final response = await http.get(
+      finalUrl,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $_token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final List<dynamic> jsonList =
+          jsonDecode(utf8.decode(response.bodyBytes));
+      return List<RequestDto>.from(
+          jsonList.map((json) => RequestDto.fromJson(json)));
+    } else {
+      final errorData = jsonDecode(utf8.decode(response.bodyBytes));
+      throw Exception(
+          'Failed to load user requests: ${response.statusCode} - ${errorData['message'] ?? 'Unknown error'}');
     }
   }
 

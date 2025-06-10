@@ -171,15 +171,39 @@ class _TenantsPageState extends State<TenantsPage> {
                       final tenant = snapshot.data![index];
                       return Card(
                         margin: const EdgeInsets.all(8.0),
-                        child: ListTile(
-                          title:
-                              Text('Житель #${tenant.id}: ${tenant.fullName}'),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              Text('Адрес: ${tenant.registrationAddress}'),
-                              Text('Почта: ${tenant.email}'),
-                              Text('Количество заявок: ${tenant.numRequests}'),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Житель #${tenant.id}: ${tenant.fullName}',
+                                      style: const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                        'Адрес: ${tenant.registrationAddress}'),
+                                    Text('Почта: ${tenant.email}'),
+                                  ],
+                                ),
+                              ),
+                              Text(
+                                '${tenant.numRequests}',
+                                style: const TextStyle(
+                                  fontSize: 48,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color.fromARGB(255, 196, 107, 126),
+                                ),
+                              ),
+                              Text('  шт. заявок'),
                             ],
                           ),
                         ),

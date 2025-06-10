@@ -101,13 +101,14 @@ class _HomePageState extends State<HomePage> {
           //   icon: const Icon(Icons.add),
           //   onPressed: _add_request,
           // ),
-          IconButton(
-            onPressed: () async {
-              await Navigator.of(context).pushNamed('/tenants');
-              _loadRequests();
-            },
-            icon: const Icon(Icons.square),
-          ),
+          if (userRole == 'ROLE_OPERATOR')
+            IconButton(
+              onPressed: () async {
+                await Navigator.of(context).pushNamed('/tenants');
+                _loadRequests();
+              },
+              icon: const Icon(Icons.people),
+            ),
           IconButton(
             onPressed: () async {
               await Navigator.of(context).pushNamed('/statistics');

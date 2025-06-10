@@ -3,19 +3,18 @@
 import 'package:intl/intl.dart';
 
 class TenantDto {
-  final int? id;
+  final int id;
   final String? email;
   final String? fullName;
   final String? registrationAddress;
-  final int? numRequests;
+  int numRequests;
 
-  TenantDto({
-    this.id,
-    this.email,
-    this.fullName,
-    this.registrationAddress,
-    this.numRequests
-  });
+  TenantDto(
+      {required this.id,
+      this.email,
+      this.fullName,
+      this.registrationAddress,
+      required this.numRequests});
 
   factory TenantDto.fromJson(Map<String, dynamic> json) {
     return TenantDto(
@@ -23,6 +22,7 @@ class TenantDto {
       email: json['email'],
       fullName: json['fullName'],
       registrationAddress: json['registrationAddress'],
+      numRequests: 0,
     );
   }
 
