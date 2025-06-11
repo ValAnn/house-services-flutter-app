@@ -143,12 +143,18 @@ class ApiService {
       throw Exception('User not authenticated.');
     }
 
-    Uri finalUrl;
+    Uri url;
     Map<String, String> queryParams = {};
 
     // Логика получения заявок в зависимости от роли:
 
-    finalUrl = Uri.parse('$_baseUrl/tenants');
+    url = Uri.parse('$_baseUrl/tenants/with-search');
+
+    if (description != null && description.isNotEmpty) {
+      queryParams['search'] = description;
+    }
+
+    final finalUrl = url.replace(queryParameters: queryParams);
 
     if (kDebugMode) {
       print('Запрос на URL: $finalUrl');

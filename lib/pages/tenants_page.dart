@@ -129,8 +129,8 @@ class _TenantsPageState extends State<TenantsPage> {
                 TextField(
                   controller: _searchController,
                   decoration: InputDecoration(
-                    labelText: 'Поиск по описанию',
-                    hintText: 'Введите часть описания',
+                    labelText: 'Поиск по имени',
+                    hintText: 'Введите часть имени',
                     prefixIcon: const Icon(Icons.search),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8.0),
